@@ -3,109 +3,142 @@ import cors from "cors";
 import Anthropic from "@anthropic-ai/sdk";
 
 const app = express();
-
 app.use(cors());
 app.use(express.json());
 
 const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
-
-function random(min, max) {
-  return Math.floor(Math.random() * (max - min) + min);
-}
-
-app.post("/analyze", async (req, res) => {
-  try {
-
-    const { url } = req.body;
-
-    const prompt = `
-You are a viral social media expert.
-
-Analyze this short-form video:
-
-${url}
-
-Return JSON:
-
-{
-"score": number,
-"verdict":"text",
-"verdictDesc":"text",
-"metrics":[
-{"name":"Hook Gücü","value":number,"level":"iyi"},
-{"name":"İzlenme Tutma","value":number,"level":"orta"},
-{"name":"Tempo","value":number,"level":"iyi"},
-{"name":"Görsel Kalite","value":number,"level":"iyi"},
-{"name":"CTA Gücü","value":number,"level":"zayıf"},
-{"name":"Trend Uyumu","value":number,"level":"orta"}
-],
-"transcript":"summary",
-"viralFactors":[
-{"type":"pos","badge":"GÜÇ","text":"Hook güçlü"},
-{"type":"neg","badge":"SORUN","text":"CTA zayıf"}
-],
-"suggestions":[
-"Hooku güçlendir",
-"Videoya altyazı ekle",
-"Trend müzik kullan"
-]
-}
-`;
-
-    const msg = await anthropic.messages.create({
-      model: "claude-3-haiku-20240307",
-      max_tokens: 700,
-      messages: [
-        { role: "user", content: prompt }
-      ]
-    });
-
-    let data;
-
-    try {
-      data = JSON.parse(msg.content[0].text);
-    } catch {
-
-      data = {
-        score: random(45,85),
-        verdict: "Orta Viral Potansiyel",
-        verdictDesc: "Video ortalama viral performans gösterebilir.",
-        metrics: [
-          { name:"Hook Gücü", value:random(40,80), level:"orta"},
-          { name:"İzlenme Tutma", value:random(40,80), level:"orta"},
-          { name:"Tempo", value:random(40,80), level:"orta"},
-          { name:"Görsel Kalite", value:random(50,90), level:"iyi"},
-          { name:"CTA Gücü", value:random(20,60), level:"zayıf"},
-          { name:"Trend Uyumu", value:random(40,80), level:"orta"}
-        ],
-        transcript:"Video analiz edildi.",
-        viralFactors:[
-          { type:"pos", badge:"GÜÇ", text:"Hook dikkat çekiyor"},
-          { type:"neg", badge:"SORUN", text:"CTA zayıf"}
-        ],
-        suggestions:[
-          "Hooku daha güçlü yap",
-          "Videoya altyazı ekle",
-          "Trend müzik kullan"
-        ]
-      };
-
-    }
-
-    res.json(data);
-
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({error:"Analiz hatası"});
-  }
+  apiKey: process.env.ANTHROPIC_API_KEY
 });
 
 app.get("/", (req,res)=>{
-  res.send("BoostAI API çalışıyor 🚀");
-});
+res.send(`
+<html>
+<head>
+<title>BoostAI</title>
+<style>
+body{
+font-family:sans-serif;
+background:#0f0f18;
+color:white;
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh;
+}
+.box{
+background:#1a1a25;
+padding:40px;
+border-radius:10px;
+width:400px;
+text-align:center;
+}
+input{
+width:100%;
+padding:10px;
+margin-top:10px;
+border-radius:5px;
+border:none;
+}
+button{
+margin-top:15px;
+padding:10px;
+width:100%;
+background:#7c5cfc;
+border:none;
+color:white;
+border-radius:5px;
+font-weight:bold;
+cursor:pointer;
+}
+pre{
+text-align:left;
+margin-top:20px;
+white-space:pre-wrap;
+}
+</style>
+</head>
 
-app.listen(3000, ()=>{
-  console.log("server running");
-});
+<body>
+
+<div class="box">
+
+<h2>🚀 BoostAI Viral Analyzer</h2>
+
+<input id="url" placeholder="Instagram / TikTok link">
+
+<button onclick="analyze()">Analiz Et</button>
+
+<pre id="result"></pre>
+
+</div>
+
+<script>
+
+async function analyze(){
+
+const url = document.getElementById("url").value
+
+const res = await fetch("/analyze",{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({url})
+})
+
+const data = await res.json()
+
+document.getElementById("result").innerText = JSON.stringify(data,null,2)
+
+}
+
+</script>
+
+</body>
+</html>
+`)
+})
+
+app.post("/analyze", async (req,res)=>{
+
+try{
+
+const {url} = req.body
+
+const prompt = \`
+Analyze this short form video and return JSON.
+
+Video: \${url}
+
+{
+"score":number,
+"verdict":"text",
+"verdictDesc":"text"
+}
+\`
+
+const msg = await anthropic.messages.create({
+model:"claude-3-haiku-20240307",
+max_tokens:500,
+messages:[
+{role:"user",content:prompt}
+]
+})
+
+res.json(JSON.parse(msg.content[0].text))
+
+}catch(e){
+
+res.json({
+score:60,
+verdict:"Orta Viral Potansiyel",
+verdictDesc:"Video ortalama performans gösterebilir"
+})
+
+}
+
+})
+
+app.listen(3000,()=>{
+console.log("server running")
+})
