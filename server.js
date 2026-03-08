@@ -11,29 +11,29 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-function fallbackResult() {
+function fallbackResult(url) {
   return {
-    score: 60,
+    score: 58,
     verdict: "Orta Viral Potansiyel",
-    verdictDesc: "Video ortalama performans gösterebilir.",
+    verdictDesc: "Video içeriği doğrudan alınamadığı için genel bir tahmini analiz üretildi.",
     metrics: [
       { name: "Hook Gücü", value: 60, level: "orta" },
-      { name: "İzlenme Tutma", value: 55, level: "orta" },
-      { name: "Tempo", value: 62, level: "orta" },
-      { name: "Görsel Kalite", value: 70, level: "iyi" },
-      { name: "CTA Gücü", value: 45, level: "zayıf" },
-      { name: "Trend Uyumu", value: 58, level: "orta" }
+      { name: "İzlenme Tutma", value: 54, level: "orta" },
+      { name: "Tempo", value: 57, level: "orta" },
+      { name: "Görsel Kalite", value: 68, level: "iyi" },
+      { name: "CTA Gücü", value: 42, level: "zayıf" },
+      { name: "Trend Uyumu", value: 55, level: "orta" }
     ],
-    transcript: "Video içeriği doğrudan alınamadı. Bu nedenle genel bir analiz üretildi.",
+    transcript: "Video linki verildi ancak gerçek içerik doğrudan okunamadı: " + url,
     viralFactors: [
-      { type: "pos", badge: "GÜÇ", text: "Görsel kalite potansiyeli var." },
-      { type: "neg", badge: "SORUN", text: "Video içeriği doğrulanamadı." },
-      { type: "neu", badge: "DİKKAT", text: "Gerçek analiz için açıklama veya transcript gerekir." }
+      { type: "pos", badge: "GÜÇ", text: "Kısa video formatı viral potansiyel taşır." },
+      { type: "neg", badge: "SORUN", text: "Video içeriği doğrudan doğrulanamadı." },
+      { type: "neu", badge: "DİKKAT", text: "Gerçek analiz için caption, transcript veya kısa açıklama gerekir." }
     ],
     suggestions: [
-      "Videonun ilk 3 saniyesini daha güçlü yap.",
+      "İlk 2 saniyede daha sert bir hook kullan.",
       "Videoya altyazı ekle.",
-      "Daha net bir CTA kullan.",
+      "Daha net bir CTA yaz.",
       "Caption ve hedef kitle bilgisini ekle."
     ]
   };
@@ -46,81 +46,86 @@ app.get("/", (req, res) => {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BoostAI</title>
+  <title>BoostAI Viral Analyzer</title>
   <style>
     * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: Arial, sans-serif;
-      background: #0f0f18;
+      background: #0b0b14;
       color: white;
+      min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
-      padding: 20px;
+      padding: 24px;
     }
     .box {
       width: 100%;
-      max-width: 700px;
+      max-width: 760px;
       background: #171723;
       border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 16px;
+      border-radius: 18px;
       padding: 24px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.35);
     }
     h1 {
-      margin-top: 0;
-      margin-bottom: 8px;
+      margin: 0 0 8px 0;
+      font-size: 38px;
+      line-height: 1.1;
     }
-    p {
+    .sub {
       color: #b7b7c9;
-      margin-top: 0;
-      margin-bottom: 16px;
+      margin-bottom: 18px;
     }
     input {
       width: 100%;
-      padding: 14px;
-      border-radius: 10px;
+      padding: 14px 16px;
+      border-radius: 12px;
       border: 1px solid rgba(255,255,255,0.08);
       background: #222232;
       color: white;
       margin-bottom: 12px;
+      font-size: 14px;
     }
     button {
       width: 100%;
-      padding: 14px;
+      padding: 14px 16px;
       border: none;
-      border-radius: 10px;
-      background: #7c5cfc;
+      border-radius: 12px;
+      background: linear-gradient(135deg,#7c5cfc,#8f6bff);
       color: white;
       font-weight: bold;
       cursor: pointer;
+      font-size: 14px;
     }
     button:disabled {
-      opacity: 0.6;
+      opacity: 0.65;
       cursor: not-allowed;
     }
     .msg {
       margin-top: 14px;
       color: #ffb3b3;
       white-space: pre-wrap;
+      min-height: 22px;
     }
     pre {
       margin-top: 16px;
       padding: 14px;
-      border-radius: 10px;
+      border-radius: 12px;
       background: #11111a;
       border: 1px solid rgba(255,255,255,0.08);
       color: #d7d7e8;
       white-space: pre-wrap;
       overflow-x: auto;
+      min-height: 140px;
     }
   </style>
 </head>
 <body>
   <div class="box">
     <h1>🚀 BoostAI Viral Analyzer</h1>
-    <p>Instagram / TikTok / YouTube linki yapıştır</p>
+    <div class="sub">Instagram / TikTok / YouTube linki yapıştır</div>
     <input id="url" placeholder="https://www.instagram.com/reel/..." />
     <button id="btn" onclick="analyze()">Analiz Et</button>
     <div id="msg" class="msg"></div>
@@ -184,38 +189,48 @@ app.post("/analyze", async (req, res) => {
       return res.status(500).json({ error: "ANTHROPIC_API_KEY eksik" });
     }
 
-    const prompt =
-      "Sen viral kısa video analiz uzmanısın. " +
-      "Kullanıcının verdiği link: " + url + ". " +
-      "Eğer videoyu doğrudan izleyemiyorsan bunu varsayımsal analiz olarak değerlendir. " +
-      "Sadece geçerli JSON döndür. Şu formatı kullan: " +
-      JSON.stringify({
-        score: 65,
-        verdict: "Orta Viral Potansiyel",
-        verdictDesc: "Kısa açıklama",
-        metrics: [
-          { name: "Hook Gücü", value: 60, level: "orta" },
-          { name: "İzlenme Tutma", value: 55, level: "orta" },
-          { name: "Tempo", value: 62, level: "orta" },
-          { name: "Görsel Kalite", value: 70, level: "iyi" },
-          { name: "CTA Gücü", value: 45, level: "zayıf" },
-          { name: "Trend Uyumu", value: 58, level: "orta" }
-        ],
-        transcript: "Kısa özet",
-        viralFactors: [
-          { type: "pos", badge: "GÜÇ", text: "Güçlü yön" },
-          { type: "neg", badge: "SORUN", text: "Zayıf yön" },
-          { type: "neu", badge: "DİKKAT", text: "Dikkat noktası" }
-        ],
-        suggestions: [
-          "Öneri 1",
-          "Öneri 2",
-          "Öneri 3"
-        ]
-      });
+    const prompt = `
+Sen kısa video viral analiz uzmanısın.
+
+Kullanıcının verdiği link:
+${url}
+
+Önemli kurallar:
+- Videoyu doğrudan açamıyorsan bunu uydurma.
+- Elinde sadece link varsa, tahmini ve dürüst analiz yap.
+- Sadece geçerli JSON döndür.
+- JSON dışında hiçbir şey yazma.
+
+İstenen JSON formatı:
+{
+  "score": 0,
+  "verdict": "metin",
+  "verdictDesc": "metin",
+  "metrics": [
+    { "name": "Hook Gücü", "value": 0, "level": "zayıf" },
+    { "name": "İzlenme Tutma", "value": 0, "level": "orta" },
+    { "name": "Tempo", "value": 0, "level": "iyi" },
+    { "name": "Görsel Kalite", "value": 0, "level": "iyi" },
+    { "name": "CTA Gücü", "value": 0, "level": "zayıf" },
+    { "name": "Trend Uyumu", "value": 0, "level": "orta" }
+  ],
+  "transcript": "kısa özet",
+  "viralFactors": [
+    { "type": "pos", "badge": "GÜÇ", "text": "güçlü yön" },
+    { "type": "neg", "badge": "SORUN", "text": "zayıf yön" },
+    { "type": "neu", "badge": "DİKKAT", "text": "dikkat noktası" }
+  ],
+  "suggestions": [
+    "öneri 1",
+    "öneri 2",
+    "öneri 3",
+    "öneri 4"
+  ]
+}
+`;
 
     const msg = await anthropic.messages.create({
-     model: "claude-3-haiku-20241022"
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 700,
       messages: [
         {
@@ -237,13 +252,13 @@ app.post("/analyze", async (req, res) => {
     try {
       parsed = JSON.parse(text);
     } catch (e) {
-      parsed = fallbackResult();
+      parsed = fallbackResult(url);
     }
 
-    res.json(parsed);
+    return res.json(parsed);
   } catch (err) {
     console.error("ANALYZE ERROR:", err);
-    res.status(500).json({
+    return res.status(500).json({
       error: err && err.message ? err.message : "Analiz hatası"
     });
   }
