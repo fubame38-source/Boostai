@@ -1,144 +1,256 @@
-import express from "express";
-import cors from "cors";
-import Anthropic from "@anthropic-ai/sdk";
+const express = require("express");
+const cors = require("cors");
+const Anthropic = require("@anthropic-ai/sdk");
 
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 
 const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY
+  apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-app.get("/", (req,res)=>{
-res.send(`
-<html>
+function fallbackResult() {
+  return {
+    score: 60,
+    verdict: "Orta Viral Potansiyel",
+    verdictDesc: "Video ortalama performans gösterebilir.",
+    metrics: [
+      { name: "Hook Gücü", value: 60, level: "orta" },
+      { name: "İzlenme Tutma", value: 55, level: "orta" },
+      { name: "Tempo", value: 62, level: "orta" },
+      { name: "Görsel Kalite", value: 70, level: "iyi" },
+      { name: "CTA Gücü", value: 45, level: "zayıf" },
+      { name: "Trend Uyumu", value: 58, level: "orta" }
+    ],
+    transcript: "Video içeriği doğrudan alınamadı. Bu nedenle genel bir analiz üretildi.",
+    viralFactors: [
+      { type: "pos", badge: "GÜÇ", text: "Görsel kalite potansiyeli var." },
+      { type: "neg", badge: "SORUN", text: "Video içeriği doğrulanamadı." },
+      { type: "neu", badge: "DİKKAT", text: "Gerçek analiz için açıklama veya transcript gerekir." }
+    ],
+    suggestions: [
+      "Videonun ilk 3 saniyesini daha güçlü yap.",
+      "Videoya altyazı ekle.",
+      "Daha net bir CTA kullan.",
+      "Caption ve hedef kitle bilgisini ekle."
+    ]
+  };
+}
+
+app.get("/", (req, res) => {
+  res.send(`
+<!DOCTYPE html>
+<html lang="tr">
 <head>
-<title>BoostAI</title>
-<style>
-body{
-font-family:sans-serif;
-background:#0f0f18;
-color:white;
-display:flex;
-justify-content:center;
-align-items:center;
-height:100vh;
-}
-.box{
-background:#1a1a25;
-padding:40px;
-border-radius:10px;
-width:400px;
-text-align:center;
-}
-input{
-width:100%;
-padding:10px;
-margin-top:10px;
-border-radius:5px;
-border:none;
-}
-button{
-margin-top:15px;
-padding:10px;
-width:100%;
-background:#7c5cfc;
-border:none;
-color:white;
-border-radius:5px;
-font-weight:bold;
-cursor:pointer;
-}
-pre{
-text-align:left;
-margin-top:20px;
-white-space:pre-wrap;
-}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BoostAI</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0f0f18;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .box {
+      width: 100%;
+      max-width: 700px;
+      background: #171723;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 24px;
+    }
+    h1 {
+      margin-top: 0;
+      margin-bottom: 8px;
+    }
+    p {
+      color: #b7b7c9;
+      margin-top: 0;
+      margin-bottom: 16px;
+    }
+    input {
+      width: 100%;
+      padding: 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: #222232;
+      color: white;
+      margin-bottom: 12px;
+    }
+    button {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      background: #7c5cfc;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .msg {
+      margin-top: 14px;
+      color: #ffb3b3;
+      white-space: pre-wrap;
+    }
+    pre {
+      margin-top: 16px;
+      padding: 14px;
+      border-radius: 10px;
+      background: #11111a;
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #d7d7e8;
+      white-space: pre-wrap;
+      overflow-x: auto;
+    }
+  </style>
 </head>
-
 <body>
+  <div class="box">
+    <h1>🚀 BoostAI Viral Analyzer</h1>
+    <p>Instagram / TikTok / YouTube linki yapıştır</p>
+    <input id="url" placeholder="https://www.instagram.com/reel/..." />
+    <button id="btn" onclick="analyze()">Analiz Et</button>
+    <div id="msg" class="msg"></div>
+    <pre id="result"></pre>
+  </div>
 
-<div class="box">
+  <script>
+    async function analyze() {
+      const url = document.getElementById("url").value.trim();
+      const btn = document.getElementById("btn");
+      const msg = document.getElementById("msg");
+      const result = document.getElementById("result");
 
-<h2>🚀 BoostAI Viral Analyzer</h2>
+      msg.textContent = "";
+      result.textContent = "";
 
-<input id="url" placeholder="Instagram / TikTok link">
+      if (!url || !url.startsWith("http")) {
+        msg.textContent = "Geçerli bir link gir.";
+        return;
+      }
 
-<button onclick="analyze()">Analiz Et</button>
+      btn.disabled = true;
+      btn.textContent = "Analiz ediliyor...";
 
-<pre id="result"></pre>
+      try {
+        const res = await fetch("/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: url })
+        });
 
-</div>
+        const data = await res.json();
 
-<script>
+        if (!res.ok) {
+          throw new Error(data.error || "Sunucu hatası");
+        }
 
-async function analyze(){
-
-const url = document.getElementById("url").value
-
-const res = await fetch("/analyze",{
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({url})
-})
-
-const data = await res.json()
-
-document.getElementById("result").innerText = JSON.stringify(data,null,2)
-
-}
-
-</script>
-
+        result.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        msg.textContent = "Hata: " + err.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Analiz Et";
+      }
+    }
+  </script>
 </body>
 </html>
-`)
-})
+  `);
+});
 
-app.post("/analyze", async (req,res)=>{
+app.post("/analyze", async (req, res) => {
+  try {
+    const url = req.body && req.body.url ? String(req.body.url) : "";
 
-try{
+    if (!url) {
+      return res.status(400).json({ error: "URL gerekli" });
+    }
 
-const {url} = req.body
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return res.status(500).json({ error: "ANTHROPIC_API_KEY eksik" });
+    }
 
-const prompt = \`
-Analyze this short form video and return JSON.
+    const prompt =
+      "Sen viral kısa video analiz uzmanısın. " +
+      "Kullanıcının verdiği link: " + url + ". " +
+      "Eğer videoyu doğrudan izleyemiyorsan bunu varsayımsal analiz olarak değerlendir. " +
+      "Sadece geçerli JSON döndür. Şu formatı kullan: " +
+      JSON.stringify({
+        score: 65,
+        verdict: "Orta Viral Potansiyel",
+        verdictDesc: "Kısa açıklama",
+        metrics: [
+          { name: "Hook Gücü", value: 60, level: "orta" },
+          { name: "İzlenme Tutma", value: 55, level: "orta" },
+          { name: "Tempo", value: 62, level: "orta" },
+          { name: "Görsel Kalite", value: 70, level: "iyi" },
+          { name: "CTA Gücü", value: 45, level: "zayıf" },
+          { name: "Trend Uyumu", value: 58, level: "orta" }
+        ],
+        transcript: "Kısa özet",
+        viralFactors: [
+          { type: "pos", badge: "GÜÇ", text: "Güçlü yön" },
+          { type: "neg", badge: "SORUN", text: "Zayıf yön" },
+          { type: "neu", badge: "DİKKAT", text: "Dikkat noktası" }
+        ],
+        suggestions: [
+          "Öneri 1",
+          "Öneri 2",
+          "Öneri 3"
+        ]
+      });
 
-Video: \${url}
+    const msg = await anthropic.messages.create({
+      model: "claude-3-haiku-20240307",
+      max_tokens: 700,
+      messages: [
+        {
+          role: "user",
+          content: prompt
+        }
+      ]
+    });
 
-{
-"score":number,
-"verdict":"text",
-"verdictDesc":"text"
-}
-\`
+    const text =
+      msg &&
+      msg.content &&
+      msg.content[0] &&
+      msg.content[0].text
+        ? msg.content[0].text
+        : "";
 
-const msg = await anthropic.messages.create({
-model:"claude-3-haiku-20240307",
-max_tokens:500,
-messages:[
-{role:"user",content:prompt}
-]
-})
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch (e) {
+      parsed = fallbackResult();
+    }
 
-res.json(JSON.parse(msg.content[0].text))
+    res.json(parsed);
+  } catch (err) {
+    console.error("ANALYZE ERROR:", err);
+    res.status(500).json({
+      error: err && err.message ? err.message : "Analiz hatası"
+    });
+  }
+});
 
-}catch(e){
+const PORT = process.env.PORT || 3000;
 
-res.json({
-score:60,
-verdict:"Orta Viral Potansiyel",
-verdictDesc:"Video ortalama performans gösterebilir"
-})
-
-}
-
-})
-
-app.listen(3000,()=>{
-console.log("server running")
-})
+app.listen(PORT, () => {
+  console.log("BoostAI server running on port " + PORT);
+});
