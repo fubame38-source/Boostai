@@ -3,7 +3,7 @@ const cors = require("cors");
 const Anthropic = require("@anthropic-ai/sdk");
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: "*" }));
 app.use(express.json());
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
